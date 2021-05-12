@@ -1,0 +1,54 @@
+---
+kind: pipeline
+type: kubernetes
+name: validation
+
+steps:
+- name: run_tests
+  image: 289208114389.dkr.ecr.us-east-1.amazonaws.com/picpay/python:3.7-stretch
+  commands:
+  - pip install -r tests/test_requirements.txt
+  - pytest -v 
+  when:
+    branch:
+    - main
+    - dev
+    event:
+    - push
+    - tag
+    - pull_request
+- name: run_config_validator
+  image: python:3
+  commands:
+  - apt-get update && apt-get install -y git rsync
+  - git clone https://github.com/PicPay/data-science-projects-build-scripts.git validation
+  - pip install -r validation/requirements.txt
+  - python validation/config_validator.py
+  when:
+    branch:
+    - main
+    - dev
+    event:
+    - push
+    - pull_request
+    - tag
+- name: push_to_qa
+  image: 289208114389.dkr.ecr.us-east-1.amazonaws.com/picpay/python:3.7-stretch
+  commands:
+  - apt-get update && apt-get install -y git rsync
+  - git clone https://github.com/PicPay/legacy-data-science-template-build-scripts.git .build
+  - /bin/bash .build/push_to_qa.sh
+  when:
+    branch:
+    - main
+    event:
+    - push
+- name: push_to_branch
+  image: 289208114389.dkr.ecr.us-east-1.amazonaws.com/picpay/python:3.7-stretch
+  commands:
+  - apt-get update && apt-get install -y git rsync
+  - git clone https://github.com/PicPay/legacy-data-science-template-build-scripts.git .build
+  - /bin/bash .build/push_to_branch.sh
+  when:
+    event:
+    - tag
